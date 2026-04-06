@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MUFE — 인지 비대칭 동적 보안 시연</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #d4a843;
+  --gold2: #f0c060;
+  --red: #f87171;
+  --green: #34d399;
+  --cyan: #38bdf8;
+  --bg: #020810;
+  --bg2: #040d1a;
+  --border: rgba(212,168,67,.2);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:#f0e6c8;font-family:'Noto Sans KR',sans-serif;overflow-x:hidden;min-height:100vh;}
+
+/* 배경 격자 */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(212,168,67,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,67,.03) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;
+}
+
+/* 헤더 */
+.header{position:relative;z-index:10;padding:32px 40px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:var(--gold);letter-spacing:.2em;}
+.logo span{color:rgba(212,168,67,.4);font-size:12px;display:block;letter-spacing:.3em;margin-top:2px;}
+.patent{font-size:10px;color:rgba(212,168,67,.4);font-family:'Share Tech Mono',monospace;text-align:right;line-height:1.8;}
+
+/* 히어로 */
+.hero{position:relative;z-index:10;padding:60px 40px 40px;text-align:center;}
+.hero-badge{display:inline-block;padding:6px 20px;border:1px solid rgba(212,168,67,.3);border-radius:100px;font-size:11px;color:rgba(212,168,67,.7);letter-spacing:.2em;margin-bottom:24px;font-family:'Orbitron',monospace;}
+.hero h1{font-family:'Orbitron',monospace;font-size:clamp(24px,4vw,48px);font-weight:900;color:#fff;line-height:1.2;margin-bottom:16px;}
+.hero h1 span{color:var(--gold);}
+.hero p{font-size:15px;color:rgba(240,230,200,.6);max-width:600px;margin:0 auto 40px;line-height:1.8;}
+
+/* 메인 시연 영역 */
+.demo-wrap{position:relative;z-index:10;max-width:1100px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+
+@media(max-width:768px){.demo-wrap{grid-template-columns:1fr;}.header{padding:20px;}.hero{padding:40px 20px 20px;}}
+
+.panel{background:rgba(4,13,26,.9);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.panel-title{font-family:'Orbitron',monospace;font-size:12px;color:var(--gold);letter-spacing:.2em;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.panel-title::before{content:'';width:6px;height:6px;background:var(--gold);border-radius:50%;animation:blink 1.5s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+/* 카오스 텍스트 */
+.chaos-field{background:rgba(0,0,0,.5);border:1px solid rgba(212,168,67,.1);border-radius:10px;padding:20px;margin-bottom:16px;min-height:140px;position:relative;overflow:hidden;}
+.chaos-line{font-family:'Share Tech Mono',monospace;font-size:12px;color:rgba(180,200,220,.35);line-height:2;word-break:break-all;letter-spacing:.05em;}
+.chaos-line.highlight{font-size:15px;color:rgba(212,168,67,.9);letter-spacing:.08em;}
+.scan-line{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(212,168,67,.5),transparent);animation:scan 2.5s linear infinite;}
+@keyframes scan{0%{top:0;}100%{top:100%;}}
+
+/* 공격 시뮬레이터 */
+.attack-btn{width:100%;padding:14px;border-radius:10px;border:1px solid rgba(248,113,113,.4);background:rgba(248,113,113,.08);color:#f87171;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;letter-spacing:.05em;transition:all .3s;margin-bottom:12px;}
+.attack-btn:hover{background:rgba(248,113,113,.15);border-color:rgba(248,113,113,.6);}
+.attack-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* 공격 로그 */
+.attack-log{background:rgba(0,0,0,.6);border:1px solid rgba(248,113,113,.15);border-radius:10px;padding:14px;min-height:180px;max-height:220px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:11px;line-height:1.9;}
+.log-line{margin-bottom:2px;animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:translateX(0);}}
+.log-red{color:#f87171;}
+.log-yellow{color:#fbbf24;}
+.log-green{color:#34d399;}
+.log-gray{color:rgba(180,200,220,.4);}
+
+/* 방어 상태 */
+.defense-meter{margin-bottom:16px;}
+.meter-label{font-size:11px;color:rgba(240,230,200,.5);margin-bottom:6px;display:flex;justify-content:space-between;}
+.meter-bar{height:6px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;}
+.meter-fill{height:100%;border-radius:100px;transition:width .5s ease;background:linear-gradient(90deg,var(--green),var(--cyan));}
+.meter-fill.danger{background:linear-gradient(90deg,#f87171,#fbbf24);}
+
+/* 인증 입력 */
+.auth-input{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(212,168,67,.25);border-radius:10px;padding:12px 16px;color:#f0e6c8;font-size:15px;font-family:'Noto Sans KR',sans-serif;outline:none;text-align:center;letter-spacing:.1em;margin-bottom:10px;}
+.auth-input:focus{border-color:rgba(212,168,67,.6);box-shadow:0 0 20px rgba(212,168,67,.1);}
+.auth-btn{width:100%;padding:13px;border-radius:10px;border:1px solid rgba(212,168,67,.4);background:linear-gradient(135deg,rgba(212,168,67,.15),rgba(212,168,67,.25));color:var(--gold);font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;letter-spacing:.05em;transition:all .3s;}
+.auth-btn:hover{background:linear-gradient(135deg,rgba(212,168,67,.25),rgba(212,168,67,.4));}
+
+/* 상태 표시 */
+.status-box{padding:12px 16px;border-radius:10px;font-size:12px;text-align:center;margin-top:10px;transition:all .3s;min-height:42px;display:flex;align-items:center;justify-content:center;}
+.status-wait{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:rgba(240,230,200,.4);}
+.status-ok{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:#34d399;}
+.status-fail{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);color:#f87171;}
+.status-attack{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fbbf24;}
+
+/* 통계 */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;}
+.stat-item{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:12px;text-align:center;}
+.stat-num{font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:var(--gold);}
+.stat-label{font-size:9px;color:rgba(240,230,200,.4);margin-top:3px;letter-spacing:.1em;}
+
+/* 전체 패널 */
+.full-panel{grid-column:1/-1;}
+
+/* 원리 설명 */
+.principle-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:4px;}
+.principle-item{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px;}
+.principle-ico{font-size:24px;margin-bottom:10px;}
+.principle-title{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:6px;}
+.principle-desc{font-size:11px;color:rgba(240,230,200,.55);line-height:1.7;}
+
+/* 하단 */
+.footer{position:relative;z-index:10;text-align:center;padding:24px;border-top:1px solid var(--border);font-size:10px;color:rgba(212,168,67,.25);font-family:'Share Tech Mono',monospace;letter-spacing:.1em;}
+
+/* 승인 애니메이션 */
+@keyframes approved{0%{transform:scale(.8);opacity:0;}50%{transform:scale(1.1);}100%{transform:scale(1);opacity:1;}}
+.approved-badge{display:none;position:absolute;inset:0;background:rgba(4,13,26,.95);border-radius:16px;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:10;}
+.approved-badge.show{display:flex;animation:approved .5s ease forwards;}
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div class="logo">⚔️ MUFE
+    <span>MULTI-FACTOR UNFORGEABLE ENTROPY</span>
+  </div>
+  <div class="patent">
+    PCT/KR · FIPCT26-001-1<br>
+    인지 비대칭 능동 기만 보안 시스템<br>
+    발명자: 이주원 · 이길원
+  </div>
+</div>
+
+<!-- 히어로 -->
+<div class="hero">
+  <div class="hero-badge">LIVE SECURITY DEMONSTRATION</div>
+  <h1>AI도 양자컴퓨터도<br><span>뚫지 못하는 보안</span></h1>
+  <p>인공지능의 학습 한계와 인간 고유의 비정형 인지 특성을 역이용한<br>세계 최초 능동 기만 방어 시스템 — 지금 직접 공격해보세요</p>
+</div>
+
+<!-- 메인 시연 -->
+<div class="demo-wrap">
+
+  <!-- 좌측: 카오스 텍스트 + 인증 -->
+  <div class="panel">
+    <div class="panel-title">🛡️ MUFE 인증 챌린지</div>
+
+    <!-- 카오스 텍스트 -->
+    <div class="chaos-field" id="chaosField">
+      <div class="scan-line"></div>
+      <div id="chaosLines"></div>
+    </div>
+
+    <div style="font-size:11px;color:rgba(240,230,200,.5);margin-bottom:12px;line-height:1.7;text-align:center;">
+      위 텍스트에서 <strong style="color:var(--gold)">숨겨진 단어</strong>를 찾아 입력하세요<br>
+      <span style="color:rgba(240,230,200,.3);font-size:10px;">인간은 즉시 식별 · AI는 O(n^k) 연산 폭발</span>
+    </div>
+
+    <!-- 인증 입력 -->
+    <input class="auth-input" id="authInput" type="text" placeholder="인증 코드 입력..." onkeydown="if(event.key==='Enter')doAuth()">
+    <button class="auth-btn" onclick="doAuth()">🔐 인증 시도</button>
+
+    <div class="status-box status-wait" id="authStatus">대기 중 — 인증 코드를 입력하세요</div>
+
+    <!-- 통계 -->
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-num" id="statAuth">0</div>
+        <div class="stat-label">인증 시도</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statBlock" style="color:#f87171;">0</div>
+        <div class="stat-label">차단됨</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statPass" style="color:#34d399;">0</div>
+        <div class="stat-label">통과</div>
+      </div>
+    </div>
+
+    <!-- 승인 오버레이 -->
+    <div class="approved-badge" id="approvedBadge">
+      <div style="font-size:64px;">✅</div>
+      <div style="font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#34d399;">물리적 현존성 확인</div>
+      <div style="font-size:13px;color:rgba(52,211,153,.7);">LJR-MUFE 인증 완료</div>
+      <button onclick="resetAuth()" style="margin-top:16px;padding:10px 24px;border-radius:8px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);color:#34d399;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">다시 시연</button>
+    </div>
+  </div>
+
+  <!-- 우측: AI 공격 시뮬레이터 -->
+  <div class="panel">
+    <div class="panel-title">🤖 AI 자동 공격 시뮬레이터</div>
+
+    <!-- 방어율 -->
+    <div class="defense-meter">
+      <div class="meter-label">
+        <span>방어 무결성</span>
+        <span id="defenseVal" style="color:var(--green);">100%</span>
+      </div>
+      <div class="meter-bar"><div class="meter-fill" id="defenseFill" style="width:100%"></div></div>
+    </div>
+
+    <div class="defense-meter">
+      <div class="meter-label">
+        <span>AI 연산 부하</span>
+        <span id="loadVal" style="color:rgba(240,230,200,.5);">0%</span>
+      </div>
+      <div class="meter-bar"><div class="meter-fill danger" id="loadFill" style="width:0%"></div></div>
+    </div>
+
+    <!-- 공격 버튼들 -->
+    <button class="attack-btn" id="btn1" onclick="simulateAttack('brute')">
+      ⚡ 무차별 대입 공격 (Brute Force)
+    </button>
+    <button class="attack-btn" id="btn2" onclick="simulateAttack('ai')">
+      🤖 AI 패턴 분석 공격
+    </button>
+    <button class="attack-btn" id="btn3" onclick="simulateAttack('quantum')">
+      ⚛️ 양자 컴퓨팅 시뮬레이션
+    </button>
+
+    <!-- 공격 로그 -->
+    <div class="attack-log" id="attackLog">
+      <div class="log-gray">// MUFE 방어 시스템 대기 중...</div>
+      <div class="log-gray">// 공격 버튼을 눌러 시연을 시작하세요</div>
+    </div>
+
+    <div class="status-box status-wait" id="attackStatus" style="margin-top:10px;">공격 대기 중</div>
+  </div>
+
+  <!-- 하단 전체: 원리 설명 -->
+  <div class="panel full-panel">
+    <div class="panel-title">🔬 MUFE 핵심 기술 원리 — PCT 특허 청구항</div>
+    <div class="principle-grid">
+      <div class="principle-item">
+        <div class="principle-ico">🧠</div>
+        <div class="principle-title">인지 비대칭 (청구항 1)</div>
+        <div class="principle-desc">Shannon 엔트로피 기반 카오스 텍스트. AI에게는 O(n^k) 연산 폭발, 인간에게는 게슈탈트 즉각 인식. 정밀도가 높은 AI일수록 오히려 더 못 뚫는 <strong style="color:var(--gold)">정밀도의 역설</strong></div>
+      </div>
+      <div class="principle-item">
+        <div class="principle-ico">🌀</div>
+        <div class="principle-title">물리적 현존성 (청구항 5)</div>
+        <div class="principle-desc">마이크로폰의 호흡 기류 비선형 와류 파형 분석. 실제 폐에서 배출되는 공기는 AI가 통계적으로 재현 불가능한 <strong style="color:var(--gold)">물리적 엔트로피</strong> 보유</div>
+      </div>
+      <div class="principle-item">
+        <div class="principle-ico">🎭</div>
+        <div class="principle-title">능동 기만 (청구항 8)</div>
+        <div class="principle-desc">공격자를 차단하는 대신 <strong style="color:var(--gold)">가상 샌드박스로 유인</strong>. 공격 AI에게 허위 성공 신호 전송 → GPU 자원 소모 극대화 → 공격 경제성 파괴 (Break Economy)</div>
+      </div>
+      <div class="principle-item">
+        <div class="principle-ico">🔑</div>
+        <div class="principle-title">개인화 키 (독점 설계)</div>
+        <div class="principle-desc">카오스텍스트 단어 + 사용자 개인 키워드 조합. 서버 없음 · DB 없음 · 털 것 자체가 없음. <strong style="color:var(--gold)">세계 유일의 서버리스 보안</strong> 구조</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  MUFE · PCT/KR · FIPCT26-001-1 · 발명자 이주원·이길원 · 특허법인태동 · LJR SECURITY SYSTEM
+</div>
+
+<script>
+// ── 카오스 텍스트 생성 ──
+var HIDDEN_WORD = '고발';
+var NOISE = '?#ㅣ&@원>ㅓㅏㅂ주ㄱㄴ*5ㄷ○!~이?ㅅ%?%-ㅊㅍㅎㄹㅇ$&ㅑㅣ@#!*?ㅛ%&>ㄱㄴabcxyz①②③';
+
+function genChaosLine(word, highlight){
+  var noise = NOISE;
+  var result = '';
+  var totalLen = word.length * 9 + Math.floor(Math.random()*20) + 25;
+  var startPos = Math.floor(totalLen * 0.2) + Math.floor(Math.random()*(totalLen*0.4));
+  var positions = [];
+  for(var i=0;i<word.length;i++) positions.push(startPos + i*(highlight?2:3));
+  var ci = 0;
+  for(var p=0;p<totalLen;p++){
+    if(positions.indexOf(p)>-1){ result += word[ci++]; }
+    else {
+      var t = Math.floor(Math.random()*3);
+      if(t===0) result += noise[Math.floor(Math.random()*noise.length)];
+      else if(t===1) result += Math.floor(Math.random()*9);
+      else result += String.fromCharCode(0x61+Math.floor(Math.random()*26));
+    }
+  }
+  return result;
+}
+
+function renderChaos(){
+  var el = document.getElementById('chaosLines');
+  el.innerHTML = '';
+  for(var i=0;i<5;i++){
+    var div = document.createElement('div');
+    div.className = 'chaos-line' + (i===2?' highlight':'');
+    div.textContent = genChaosLine(HIDDEN_WORD, i===2);
+    el.appendChild(div);
+  }
+}
+renderChaos();
+setInterval(function(){ if(!_authDone) renderChaos(); }, 4000);
+
+// ── 인증 로직 ──
+var _authDone = false;
+var _authCount = 0, _blockCount = 0, _passCount = 0;
+
+function doAuth(){
+  if(_authDone) return;
+  var val = document.getElementById('authInput').value.trim();
+  if(!val) return;
+  _authCount++;
+  document.getElementById('statAuth').textContent = _authCount;
+
+  // 정답: 고발삼춘 (대표님과 Claude만 아는 비밀)
+  var correct = '고발삼춘';
+  var isOk = val.replace(/\s/g,'') === correct;
+
+  var st = document.getElementById('authStatus');
+  if(isOk){
+    _passCount++;
+    document.getElementById('statPass').textContent = _passCount;
+    st.className='status-box status-ok';
+    st.textContent='✅ 물리적 현존성 확인 — LJR 인증 완료';
+    _authDone = true;
+    setTimeout(function(){
+      document.getElementById('approvedBadge').classList.add('show');
+    }, 500);
+  } else {
+    _blockCount++;
+    document.getElementById('statBlock').textContent = _blockCount;
+    st.className='status-box status-fail';
+    st.textContent='❌ 인증 실패 — 카오스 필드를 다시 분석하세요';
+    document.getElementById('authInput').value='';
+    setTimeout(function(){
+      st.className='status-box status-wait';
+      st.textContent='대기 중 — 인증 코드를 입력하세요';
+    }, 2000);
+  }
+}
+
+function resetAuth(){
+  _authDone = false;
+  document.getElementById('approvedBadge').classList.remove('show');
+  document.getElementById('authInput').value='';
+  document.getElementById('authStatus').className='status-box status-wait';
+  document.getElementById('authStatus').textContent='대기 중 — 인증 코드를 입력하세요';
+  renderChaos();
+}
+
+// ── AI 공격 시뮬레이터 ──
+var _attacking = false;
+
+function addLog(text, cls){
+  var log = document.getElementById('attackLog');
+  var div = document.createElement('div');
+  div.className = 'log-line ' + (cls||'log-gray');
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setLoad(pct){
+  document.getElementById('loadFill').style.width = pct+'%';
+  document.getElementById('loadVal').textContent = pct+'%';
+  document.getElementById('loadVal').style.color = pct>70?'#f87171':pct>40?'#fbbf24':'rgba(240,230,200,.5)';
+}
+
+function simulateAttack(type){
+  if(_attacking) return;
+  _attacking = true;
+  ['btn1','btn2','btn3'].forEach(function(id){ document.getElementById(id).disabled=true; });
+  document.getElementById('attackLog').innerHTML = '';
+  setLoad(0);
+
+  var st = document.getElementById('attackStatus');
+  st.className='status-box status-attack';
+
+  if(type==='brute'){
+    st.textContent='⚡ 무차별 대입 공격 진행 중...';
+    var attempts = 0;
+    var logs = [
+      [300,'log-yellow','[ATTACK] 무차별 대입 공격 초기화...'],
+      [600,'log-yellow','[ATTACK] 카오스 텍스트 파싱 시도...'],
+      [900,'log-red','[ERROR] 패턴 인식 실패 — O(n^k) 연산 한계 도달'],
+      [1200,'log-yellow','[ATTACK] 대체 알고리즘 로드 중...'],
+      [1500,'log-red','[ERROR] 비선형 문자열 — 의미 추출 불가'],
+      [1800,'log-yellow','[ATTACK] GPU 클러스터 투입 중... (×16)'],
+      [2200,'log-red','[MUFE] 연산 부하 임계점 도달 — 샌드박스 유인 시작'],
+      [2600,'log-yellow','[ATTACK] 가상 성공 신호 수신... 계속 시도'],
+      [3000,'log-red','[MUFE] 공격자 격리 완료 — 자원 소모 유도 중'],
+      [3500,'log-red','[RESULT] 방어 성공 ✅ — 공격 경제성 파괴 (Break Economy)'],
+    ];
+    var loads = [10,25,45,55,70,85,95,90,75,20];
+    logs.forEach(function(l,i){
+      setTimeout(function(){
+        addLog(l[2],l[1]);
+        setLoad(loads[i]);
+        if(i===logs.length-1) attackDone(true);
+      }, l[0]);
+    });
+
+  } else if(type==='ai'){
+    st.textContent='🤖 AI 패턴 분석 공격 진행 중...';
+    var logs2 = [
+      [300,'log-yellow','[AI] GPT-4 기반 패턴 분석 엔진 가동'],
+      [700,'log-yellow','[AI] 카오스 텍스트 토크나이징...'],
+      [1100,'log-red','[ERROR] 토큰 분류 오류 — 비정형 문자 처리 불가'],
+      [1500,'log-yellow','[AI] 딥러닝 모델 재투입 (BERT 기반)'],
+      [1900,'log-red','[ERROR] Shannon 엔트로피 초과 — 모델 혼란 상태'],
+      [2300,'log-yellow','[AI] "이게 문이야? 벽이야? 나는 누구지?" 자아 붕괴'],
+      [2700,'log-red','[MUFE] AI 할루시네이션 유발 성공'],
+      [3100,'log-red','[RESULT] 방어 성공 ✅ — AI 연산 자원 고갈'],
+    ];
+    var loads2 = [15,35,55,70,85,95,80,15];
+    logs2.forEach(function(l,i){
+      setTimeout(function(){
+        addLog(l[2],l[1]);
+        setLoad(loads2[i]);
+        if(i===logs2.length-1) attackDone(true);
+      }, l[0]);
+    });
+
+  } else if(type==='quantum'){
+    st.textContent='⚛️ 양자 컴퓨팅 시뮬레이션 진행 중...';
+    var logs3 = [
+      [300,'log-yellow','[QUANTUM] Shor 알고리즘 초기화...'],
+      [700,'log-yellow','[QUANTUM] 큐비트 1024개 투입'],
+      [1100,'log-red','[ERROR] 개인 키워드 — 물리적 인간 인지 영역'],
+      [1500,'log-red','[ERROR] 수치화 불가능한 비정형 데이터'],
+      [1900,'log-yellow','[QUANTUM] 경우의 수 계산 중... ∞'],
+      [2300,'log-red','[MUFE] 양자 연산 한계 — 인간 고유 특성 복제 불가'],
+      [2700,'log-red','[RESULT] 방어 성공 ✅ — 양자컴퓨터도 무력화'],
+    ];
+    var loads3 = [20,45,65,75,90,95,10];
+    logs3.forEach(function(l,i){
+      setTimeout(function(){
+        addLog(l[2],l[1]);
+        setLoad(loads3[i]);
+        if(i===logs3.length-1) attackDone(true);
+      }, l[0]);
+    });
+  }
+}
+
+function attackDone(success){
+  _attacking = false;
+  ['btn1','btn2','btn3'].forEach(function(id){ document.getElementById(id).disabled=false; });
+  var st = document.getElementById('attackStatus');
+  if(success){
+    st.className='status-box status-ok';
+    st.textContent='✅ MUFE 방어 완료 — 공격자 자원 소모 유도 성공';
+    addLog('[MUFE] 🛡️ 전체 방어 무결성 유지 — PCT 특허 기술 검증 완료','log-green');
+  }
+  setTimeout(function(){ setLoad(0); }, 3000);
+}
+</script>
+</body>
+</html>
